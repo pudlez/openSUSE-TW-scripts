@@ -235,7 +235,7 @@ display_post_update_info() {
 cleanup_and_exit() {
   local failed_task=$1
   kill $SUMMARY_PID
-#  rm -r "$STATUS_DIR"
+  rm -r "$STATUS_DIR"
 
   if [[ $failed_task != "refresh" ]]; then
     display_post_update_info
