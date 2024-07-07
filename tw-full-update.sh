@@ -2,6 +2,8 @@
 ################################################################################
 # I wanted a script to fully update my tumbleweed system and cleanup old files
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# v0.5 - Changed colors to ansi and made the background the color. Still feel
+#        like it can be better...
 # v0.4 - Defined some min width/height values to display just the summary and
 #        also the log if it's large enough. Added some logic to detect if a line
 #        overflows and adjusts automatically.
@@ -32,14 +34,14 @@ echo " PENDING " > "$STATUS_DIR/update_flatpaks"
 echo " PENDING " > "$STATUS_DIR/remove_flatpaks"
 
 # Define some colors for the summary block
-STATUS_RESET=$(tput sgr0)
-STATUS_BG=$(tput setab 4) # BLUE
-STATUS_TEXT=$(tput setaf 7) # WHITE
-STATUS_PENDING=$(tput setaf 5) # MAGENTA
-STATUS_RUNNING=$(tput setaf 3) # YELLOW
-STATUS_RUNNING=$(tput setaf 2) # GREEN
-STATUS_SKIPPED=$(tput setaf 6) # CYAN
-STATUS_FAILED=$(tput setaf 1) # RED
+STATUS_RESET='\033[0m'
+STATUS_BG='\033[44m'         # Background Blue
+STATUS_TEXT='\033[44;37m'    # Blue background, white text
+STATUS_COMPLETED='\033[42;37m' # Green background, white text
+STATUS_PENDING='\033[100;37m'  # Grey background, white text
+STATUS_RUNNING='\033[42;37m'   # Green background, white text
+STATUS_SKIPPED=$STATUS_TEXT    # White background, white text
+STATUS_FAILED='\033[41;37m'    # Red background, white text
 
 # Read the status from file
 read_status() {
@@ -52,7 +54,7 @@ colored_status() {
   local status=$1
   case $status in
     "COMPLETED")
-      echo -e "${STATUS_RUNNING}${status}${STATUS_TEXT}"
+      echo -e "${STATUS_COMPLETED}${status}${STATUS_TEXT}"
       ;;
     " RUNNING ")
       echo -e "${STATUS_RUNNING}${status}${STATUS_TEXT}"
