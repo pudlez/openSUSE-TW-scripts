@@ -2,6 +2,7 @@
 ################################################################################
 # I wanted a script to fully update my tumbleweed system and cleanup old files
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# v0.6 - Fixed some typos and comments. Also changed/fixed a couple minor things
 # v0.5 - Changed colors to ansi and made the background the color. Still feel
 #        like it can be better...
 # v0.4 - Defined some min width/height values to display just the summary and
@@ -12,9 +13,10 @@
 # v0.1 - First version, just shell commands
 ################################################################################
 
-# Minimum height/width
+# Minimum height/width for the window to display the summary
 MIN_WIDTH=45
 MIN_HEIGHT=11
+# Set the minimum number of characters to display the log
 LOG_MIN_CHARACTERS=300
 
 # Get the current time
@@ -23,9 +25,11 @@ CURRENT_TIME=$(date +%Y-%m-%d_%H-%M-%S-%3N)
 # Set the log file
 LOG_FILE="/tmp/${CURRENT_TIME}_os-update.log"
 
-# Drawing summary using variables seemed to reset to the default value on refresh so let's use a directory/files
+# Drawing summary using variables was reset to the default value when it would refresh so lets use files.
 STATUS_DIR="/tmp/${CURRENT_TIME}_update_status"
-mkdir -p "$STATUS_DIR"
+if [ ! -d "$STATUS_DIR" ]; then
+  mkdir -p "$STATUS_DIR"
+fi
 echo " PENDING " > "$STATUS_DIR/refresh"
 echo " PENDING " > "$STATUS_DIR/update"
 echo " PENDING " > "$STATUS_DIR/dist_upgrade"
@@ -34,13 +38,12 @@ echo " PENDING " > "$STATUS_DIR/update_flatpaks"
 echo " PENDING " > "$STATUS_DIR/remove_flatpaks"
 
 # Define some colors for the summary block
-STATUS_RESET='\033[0m'
-STATUS_BG='\033[44m'         # Background Blue
-STATUS_TEXT='\033[44;37m'    # Blue background, white text
+STATUS_RESET='\033[0m'         # Default background/text colors
+STATUS_TEXT='\033[44;37m'      # Blue background, white text
 STATUS_COMPLETED='\033[42;37m' # Green background, white text
-STATUS_PENDING='\033[100;37m'  # Grey background, white text
+STATUS_PENDING='\033[40;37m'   # Black background, white text
 STATUS_RUNNING='\033[42;37m'   # Green background, white text
-STATUS_SKIPPED=$STATUS_TEXT    # White background, white text
+STATUS_SKIPPED=$STATUS_TEXT    # set as the regular summary text.
 STATUS_FAILED='\033[41;37m'    # Red background, white text
 
 # Read the status from file
@@ -113,22 +116,19 @@ draw_summary() {
   if [ "$term_height" -ge "$MIN_HEIGHT" ] && [ "$term_width" -ge "$MIN_WIDTH" ]; then
     clear
     echo ""
-    echo -e "${STATUS_BG}${STATUS_TEXT}============================================"
-    echo -e "${STATUS_BG}${STATUS_TEXT}= Refreshing Repos...........[ $(colored_status "$(read_status refresh)") ] ="
-    echo -e "${STATUS_BG}${STATUS_TEXT}= Updating Packages..........[ $(colored_status "$(read_status update)") ] ="
-    echo -e "${STATUS_BG}${STATUS_TEXT}= Updating Distro............[ $(colored_status "$(read_status dist_upgrade)") ] ="
-    echo -e "${STATUS_BG}${STATUS_TEXT}= Removing old dependencies..[ $(colored_status "$(read_status remove_deps)") ] ="
-    echo -e "${STATUS_BG}${STATUS_TEXT}= Updating flatpaks..........[ $(colored_status "$(read_status update_flatpaks)") ] ="
-    echo -e "${STATUS_BG}${STATUS_TEXT}= Removing old flatpaks......[ $(colored_status "$(read_status remove_flatpaks)") ] ="
-    echo -e "${STATUS_BG}${STATUS_TEXT}============================================"
+    echo -e "${STATUS_TEXT}============================================"
+    echo -e "${STATUS_TEXT}= Refreshing Repos...........[ $(colored_status "$(read_status refresh)") ] ="
+    echo -e "${STATUS_TEXT}= Updating Packages..........[ $(colored_status "$(read_status update)") ] ="
+    echo -e "${STATUS_TEXT}= Updating Distro............[ $(colored_status "$(read_status dist_upgrade)") ] ="
+    echo -e "${STATUS_TEXT}= Removing old dependencies..[ $(colored_status "$(read_status remove_deps)") ] ="
+    echo -e "${STATUS_TEXT}= Updating flatpaks..........[ $(colored_status "$(read_status update_flatpaks)") ] ="
+    echo -e "${STATUS_TEXT}= Removing old flatpaks......[ $(colored_status "$(read_status remove_flatpaks)") ] ="
+    echo -e "${STATUS_TEXT}============================================"
     echo -e "${STATUS_RESET}"
 
-    # if preferred min height/width, display the log
-    # LOG_MIN_CHARACTERS
-    #a=$(( 2*k + 1 ))
     # get available width and lines for logs
     local log_lines=$((term_height - 12))  # minus the summary height and few extra lines
-    local log_characters=$(( term_width * log_lines))
+    local log_characters=$(( term_width * log_lines)) # number of characters that can be displayed to shell
     if [ "$log_characters" -ge "$LOG_MIN_CHARACTERS" ]; then
       if [[ -f "$LOG_FILE" ]]; then
         wrap_log_lines $log_lines "$(tail -n "$log_lines" "$LOG_FILE")"
@@ -142,7 +142,7 @@ draw_summary() {
   fi
 }
 
-# Run a command and update its status
+# Run a command, log to file, and update its status
 run_command() {
   local command=$1
   local key=$2
@@ -160,8 +160,8 @@ run_command() {
     update_status "$key" "COMPLETED"
   else
     update_status "$key" "  FAILED "
-    draw_summary
     skip_remaining_tasks "$key"
+    draw_summary
     cleanup_and_exit "$key"
   fi
   draw_summary
@@ -217,11 +217,15 @@ display_post_update_info() {
   # Check if the output is not empty
   echo -e "\n\n"
   if [[ -n $output ]]; then
-    # there's files, display them
-    echo "####################"
-    echo "# rpm config check #"
-    echo "####################"
-    echo "$output"
+    if [ "$output" != "Searching for unresolved configuration files" ]; then
+      # there's files, display them
+      echo "####################"
+      echo "# rpm config check #"
+      echo "####################"
+      echo "$output"
+    else
+      echo "No rpm configs that need updates."
+    fi
   else
     echo "No rpm configs that need updates."
   fi
@@ -231,7 +235,7 @@ display_post_update_info() {
 cleanup_and_exit() {
   local failed_task=$1
   kill $SUMMARY_PID
-  rm -r "$STATUS_DIR"
+#  rm -r "$STATUS_DIR"
 
   if [[ $failed_task != "refresh" ]]; then
     display_post_update_info
@@ -281,5 +285,6 @@ display_post_update_info
 
 # Display details about the log file used/left
 echo -e "\n\n"
-echo "If you want to view the log or keep it, please move it from /tmp"
+echo "Note: If you want to view the log"
 echo "Log: ${LOG_FILE}"
+echo "If you want to keep it, make sure you move it from /tmp before a reboot."
