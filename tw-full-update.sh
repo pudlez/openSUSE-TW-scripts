@@ -2,6 +2,9 @@
 ################################################################################
 # I wanted a script to fully update my tumbleweed system and cleanup old files
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# v0.7 - Added logic to fix having TPM automatically unlock my LUKS LVM if the
+#        kernel is updated. I did set it to false by default in case others use
+#        this script so it doesn't attempt it unless they change it.
 # v0.6 - Fixed some typos and comments. Also changed/fixed a couple minor things
 # v0.5 - Changed colors to ansi and made the background the color. Still feel
 #        like it can be better...
@@ -13,6 +16,11 @@
 # v0.1 - First version, just shell commands
 ################################################################################
 
+# Set to true or false if you want to fix TPM if the kernel is updated
+#FIX_TPM="true"
+FIX_TPM="false"
+
+################################################################################
 # Minimum height/width for the window to display the summary
 MIN_WIDTH=45
 MIN_HEIGHT=11
@@ -282,6 +290,24 @@ rm -r "$STATUS_DIR"
 
 # Display the programs that should be restarted and the RPM config check
 display_post_update_info
+
+
+if [[ "$FIX_TPM" == "true" ]]; then
+  # check if we need to fix TPM
+  current_kernel=$(uname -r)
+  current_version=$(echo "$current_kernel" | cut -d'-' -f1)
+  # Find all vmlinuz files in /boot
+  for vmlinuz_file in /boot/vmlinuz-*; do
+    # Extract the version from the filename
+    file_version=$(echo "$vmlinuz_file" | cut -d'-' -f2)
+    # Get the currently running kernel version
+    if [[ "$file_version" > "$current_version" ]]; then
+      echo "Fixing TPM..."
+      # fdectl regenerate-key
+      fdectl tpm-authorize
+    fi
+  done
+fi
 
 # Display details about the log file used/left
 echo -e "\n\n"
